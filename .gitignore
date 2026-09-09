@@ -1,0 +1,29 @@
+# 의존성 · 빌드 결과물
+node_modules/
+dist/
+dist-ssr/
+
+# Firebase 설정값 (GitHub Secrets로 관리한다)
+.env.local
+.env*.local
+
+# 로컬 도구 설정
+.claude/settings.local.json
+
+# 편집기 · OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+Thumbs.db
+desktop.ini
+
+# 로그
+logs/
+*.log
+npm-debug.log*

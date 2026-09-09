@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --font-jp: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+  --font-jp-serif: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-kr: "Noto Sans KR", "Pretendard", -apple-system, sans-serif;
+
+  --color-ink-50: #f6f7f9;
+  --color-ink-100: #eceef2;
+  --color-ink-200: #d5d9e2;
+  --color-ink-300: #b0b7c6;
+  --color-ink-400: #838da3;
+  --color-ink-500: #646f87;
+  --color-ink-600: #4e576d;
+  --color-ink-700: #404759;
+  --color-ink-800: #373d4b;
+  --color-ink-900: #1d212b;
+  --color-ink-950: #12151c;
+
+  --color-paper: #f4f2ed;
+  --color-paper-sunk: #eae7e0;
+  --color-card: #ffffff;
+
+  --color-vermilion-400: #f4796a;
+  --color-vermilion-500: #e8503d;
+  --color-vermilion-600: #d43a26;
+}
+
+:root {
+  color-scheme: light;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-kr);
+  background: var(--color-paper);
+  color: var(--color-ink-900);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+ruby > rt {
+  font-size: 0.5em;
+  font-weight: 500;
+  color: var(--color-ink-500);
+  letter-spacing: 0;
+  transition: opacity 120ms ease;
+}
+
+ruby.rb-hidden > rt {
+  opacity: 0;
+}
+
+.jp {
+  font-family: var(--font-jp);
+  font-feature-settings: "palt" 0;
+}
+
+.jp-serif {
+  font-family: var(--font-jp-serif);
+}
+
+@keyframes kc-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.kc-pop {
+  animation: kc-pop 220ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@keyframes kc-slide {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.kc-slide {
+  animation: kc-slide 260ms cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}

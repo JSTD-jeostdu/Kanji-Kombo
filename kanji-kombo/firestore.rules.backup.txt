@@ -1,0 +1,46 @@
+// ============================================================
+//  변경 전 원본 보안 규칙 백업 — 2026-09-09
+//  프로젝트: p-bti-b4e49
+//
+//  문제가 생기면 아래 내용을 통째로 복사해서
+//  Firebase 콘솔 > Firestore Database > 규칙 탭에 붙여넣고
+//  [게시]를 누르면 원래대로 돌아갑니다.
+//
+//  ↓↓↓ 여기서부터 복사 ↓↓↓
+// ============================================================
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /submissions/{docId} {
+
+      allow read: if true;
+
+      allow create: if
+        request.resource.data.keys().toSet() == ['classId','school','truth','life','createdAt'].toSet()
+
+        && request.resource.data.classId is string
+        && request.resource.data.classId.size() <= 16
+
+        && request.resource.data.school in ['sophist','socrates','confucian','daoist']
+
+        && request.resource.data.truth is int
+        && request.resource.data.truth >= -20
+        && request.resource.data.truth <= 20
+
+        && request.resource.data.life is int
+        && request.resource.data.life >= -20
+        && request.resource.data.life <= 20
+
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

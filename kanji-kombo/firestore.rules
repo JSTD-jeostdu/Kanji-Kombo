@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 칸지콤보: 학습 기록은 로그인한 본인 것만 읽고 쓸 수 있다
+    match /kanjiKombo/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /submissions/{docId} {
+
+      allow read: if true;
+
+      allow create: if
+        request.resource.data.keys().toSet() == ['classId','school','truth','life','createdAt'].toSet()
+
+        && request.resource.data.classId is string
+        && request.resource.data.classId.size() <= 16
+
+        && request.resource.data.school in ['sophist','socrates','confucian','daoist']
+
+        && request.resource.data.truth is int
+        && request.resource.data.truth >= -20
+        && request.resource.data.truth <= 20
+
+        && request.resource.data.life is int
+        && request.resource.data.life >= -20
+        && request.resource.data.life <= 20
+
+        && request.resource.data.createdAt == request.time;
+
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

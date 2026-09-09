@@ -1,0 +1,160 @@
+# 칸지콤보 (漢字コンボ)
+
+실생활 숙어 조합으로 익히는 개인용 일본어 한자 학습 웹앱.
+[칸지콤보_PRD.md](../칸지콤보_PRD.md) 기준 **로드맵 1~3단계** 구현본입니다.
+
+- Firebase 설정 없이도 로컬 전용(localStorage)으로 완전히 동작하고, 설정을 넣으면 Google 로그인 + Firestore 동기화가 켜집니다
+- 교육한자 1학년 80자 · 숙어 178개 · 예문 357개
+- SM-2 계열 SRS, 후리가나 토글, 오늘의 복습 큐, 사전 브라우저, 통계 대시보드, 설정
+
+화면은 PRD 8장 다섯 항목을 모두 덮습니다 — 학습(플래시카드), 오늘의 복습 큐(학습 화면 상단 요약을 누르면 열림), 한자·숙어 사전, 통계, 설정.
+
+## 실행
+
+```bash
+npm install
+npm run dev
+```
+
+| 스크립트 | 하는 일 |
+| - | - |
+| `npm run dev` | 개발 서버 (http://localhost:5173) |
+| `npm run build` | 타입 검사 + 프로덕션 빌드 |
+| `npm run validate` | **데이터셋 무결성 검사** — 숙어·예문을 손볼 때마다 실행 |
+| `npm run test:merge` | 기기 간 병합 규칙 검사 — `src/sync/merge.ts`를 손볼 때마다 실행 |
+| `npm run typecheck` | 타입 검사만 |
+| `npm run lint` | oxlint |
+
+## 구조
+
+```
+src/
+  data/
+    kanji.ts            교육한자 1학년 80자 (배당표 순서 = 학습 진도 순서)
+    supplement.ts       배당표 밖 한자 88자의 한·일 독음 보조표
+    readings.ts         글자 단위 한·일 독음 조회
+    compounds/
+      row.ts            숙어 행 튜플 타입
+      part1~4.ts        숙어 데이터 (배당표 20자 단위로 분할)
+      index.ts          Compound 조립 · 한자별 역인덱스
+  lib/
+    srs.ts              SM-2 알고리즘 (순수 함수)
+    queue.ts            오늘의 복습 큐 + 신규 카드 배분
+    furigana.ts         `漢字[かんじ]` 표기법 파서
+    stats.ts            연속 학습일 · 커버리지 · 예정량
+    date.ts             학습일(dayStartHour) 계산
+  store/
+    persist.ts          localStorage 직렬화 · 마이그레이션 · 내보내기/가져오기
+    AppProvider.tsx     상태 · 채점 · 실행취소
+    appContext.ts       Context + useApp 훅
+  firebase/
+    env.ts              설정값과 firebaseEnabled (SDK를 import하지 않음)
+    client.ts           App/Auth/Firestore 초기화 + 오프라인 캐시
+    auth.ts             Google 로그인
+  sync/
+    merge.ts            기기 간 카드별·날짜별 병합
+    remote.ts           kanjiKombo/{uid} 문서 읽기·쓰기
+    useSync.ts          로그인 구독 · 양방향 동기화
+  components/           Furigana · StudyCard · RatingBar · TodayQueue · Sheet · BottomNav · ui
+  pages/                Study · Browse · Stats · Settings
+scripts/
+  validate-data.ts      데이터 검사기
+```
+
+## 데이터 추가하기
+
+숙어 한 줄은 다음 튜플입니다 (`src/data/compounds/row.ts`).
+
+```ts
+["毎日", "まいにち", "매일 · 날마다", "N5", "日", [
+  ["毎日[まいにち]日本語[にほんご]を勉強[べんきょう]しています。", "저는 매일 일본어를 공부하고 있습니다."],
+  ["毎日[まいにち]運動[うんどう]しています。", "저는 매일 운동을 합니다."],
+]],
+```
+
+- 4번째 값은 JLPT 급수, 5번째는 **대표 한자** — 이 한자의 배당표 순서가 곧 카드가 나오는 순서입니다.
+- 예문의 후리가나는 `漢字[かんじ]` 표기법으로 씁니다. 대괄호 **바로 앞** 한자 덩어리에 루비가 붙습니다.
+- `kanjiIds`는 표기에서 자동으로 뽑으므로 직접 쓰지 않습니다.
+- 표기에 새 한자를 쓰면 `supplement.ts`에 한·일 독음을 추가해야 합니다. `npm run validate`가 빠진 것을 알려줍니다.
+
+학년을 넓힐 때는 `kanji.ts`에 해당 학년 배당표를 이어 붙이고 `grade` 값만 바꾸면
+사전 필터·통계의 학년별 진행률이 자동으로 따라옵니다.
+
+## SRS 동작
+
+| 평가 | 신규/학습중 | 복습중 |
+| - | - | - |
+| 다시 | 1분 뒤 (단계 초기화) | 1분 뒤, 간격 40%로 축소, 이지팩터 −0.20 |
+| 어려움 | 같은 단계 반복 | 간격 ×1.2, 이지팩터 −0.15 |
+| 보통 | 다음 단계 → 졸업 시 1일 | 간격 × 이지팩터 |
+| 쉬움 | 즉시 졸업, 4일 | 간격 × 이지팩터 × 1.3, 이지팩터 +0.15 |
+
+학습 단계는 1분 → 10분, 간격이 21일을 넘으면 '성숙'으로 표시합니다.
+
+## 단축키 (학습 화면)
+
+`Space` 뒤집기 / 보통 · `1` 다시 · `2` 어려움 · `3` 보통 · `4` 쉬움 · `F` 후리가나 · `U` 실행 취소
+
+## Firebase 연동 (로드맵 3단계)
+
+**기존 Firebase 프로젝트에 웹 앱만 추가하는 구성**을 전제로 만들었습니다. 설정 전에는 앱이 로컬 전용으로 그대로 동작하므로, 아래는 원할 때 하면 됩니다.
+
+### 1. 웹 앱 등록
+
+Firebase 콘솔 → 기존 프로젝트 → **프로젝트 설정 → 내 앱 → 웹 앱 추가(`</>`)**. 닉네임은 아무거나(예: 칸지콤보).
+
+> **Firebase Hosting 설정 체크박스는 켜지 마세요.** 지금 단계에서 필요 없고, 기존 앱이 쓰는 호스팅 사이트와 얽히면 곤란해집니다.
+
+### 2. 설정값 옮기기
+
+등록 후 나오는 `firebaseConfig` 값을 `.env.local`에 넣습니다.
+
+```bash
+cp .env.local.example .env.local
+```
+
+`VITE_FIREBASE_API_KEY`, `..._AUTH_DOMAIN`, `..._PROJECT_ID`, `..._STORAGE_BUCKET`, `..._MESSAGING_SENDER_ID`, `..._APP_ID` 여섯 개를 채우고 **개발 서버를 재시작**합니다. (Vite는 env를 기동 시에만 읽습니다)
+
+### 3. Google 로그인 사용 설정
+
+**Authentication → Sign-in method → Google**을 사용 설정합니다. 같은 프로젝트의 다른 앱에서 이미 켜 두었다면 그대로 두면 됩니다.
+**Authentication → Settings → 승인된 도메인**에 `localhost`가 있는지 확인하세요(기본 포함).
+
+### 4. 보안 규칙 **병합**
+
+가장 조심할 부분입니다. Firestore 보안 규칙은 **데이터베이스당 하나**라, 기존 앱 규칙을 덮어쓰면 그 앱이 즉시 막힙니다.
+[`firestore.rules.snippet`](firestore.rules.snippet)의 `match /kanjiKombo/{userId}` 블록 **하나만** 기존 규칙 안에 추가하세요.
+
+### 5. 확인
+
+앱 → 설정 → **계정 · 동기화**에서 Google 로그인. 상태 배지가 `동기화됨`이 되고, 콘솔의 Firestore에 `kanjiKombo/{uid}` 문서 하나가 생기면 성공입니다.
+
+### 무료 플랜을 다른 앱과 나눠 쓰는 점을 감안한 설계
+
+| 결정 | 이유 |
+| - | - |
+| 컬렉션을 `kanjiKombo/` 하나로 격리 | 기존 앱 컬렉션과 절대 섞이지 않게 |
+| 사용자당 **문서 1개** | 카드마다 문서를 두면 첫 동기화에 178회 쓰기. 지금은 읽기 1회·쓰기 1회 |
+| 원시 채점 로그 대신 **일별 집계**(`dayHistory`) | 문서 1MiB 한도에 걸리지 않도록. 하루 40바이트 남짓이라 10년치가 150KB 수준 |
+| 쓰기 1.2초 디바운스 | 연속 채점을 한 번의 쓰기로 묶음 |
+| 오프라인 캐시(`persistentLocalCache`) 사용 | 네트워크 없이 학습하고 재접속 시 동기화 (PRD 7장) |
+| Firebase SDK를 동적 import | 로컬 전용으로 쓸 때 600KB 청크를 아예 내려받지 않음 |
+
+### 기기 간 병합 규칙
+
+문서 통째로 "나중 것이 이김"으로 처리하면 오프라인 학습이 통째로 날아갑니다. 그래서 잘게 병합합니다.
+
+- **카드**: 같은 숙어는 `lastReviewedAt`이 더 최근인 쪽이 남습니다 (같으면 채점 횟수가 많은 쪽).
+- **일별 집계·추가 신규분**: 항목별 최댓값.
+- **설정**: 쪼갤 수 없으므로 `updatedAt`이 더 최근인 쪽 전체.
+
+### 알아 둘 점
+
+- 같은 프로젝트이므로 **Authentication 사용자 풀도 공유**됩니다. 기존 앱과 동일한 uid를 씁니다.
+- 로그아웃해도 이 기기의 학습 기록은 남습니다.
+- 다른 Google 계정으로 로그인하면, 현재 기기의 기록이 **그 계정 문서에 병합**됩니다.
+- 배포(Firebase Hosting)는 아직 설정하지 않았습니다. 기존 앱이 같은 프로젝트의 호스팅을 쓰고 있다면 기본 사이트를 덮어쓸 수 있으니, 배포는 별도로 사이트 구성을 확인한 뒤에 진행하세요.
+
+## 다음 단계 (PRD 로드맵)
+
+4. 조요칸지 전체로 데이터 확장, 예문 AI 생성 + 검수.

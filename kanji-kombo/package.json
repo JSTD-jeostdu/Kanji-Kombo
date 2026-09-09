@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "validate": "tsx scripts/validate-data.ts",
     "typecheck": "tsc -b",
-    "test:merge": "tsx scripts/test-merge.ts"
+    "test:merge": "tsx scripts/test-merge.ts",
+    "export:worksheet": "tsx scripts/export-worksheet.ts",
+    "build:worksheet": "tsx scripts/export-worksheet.ts && node scripts/build-worksheet.mjs"
   },
   "dependencies": {
     "firebase": "^12.18.0",
@@ -23,6 +25,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
+    "docx": "^9.7.1",
     "oxlint": "^1.79.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.13",

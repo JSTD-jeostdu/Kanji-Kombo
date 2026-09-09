@@ -25,3 +25,6 @@ dist-ssr
 
 # 로컬 Firebase 설정
 .env.local
+
+# 워크시트 산출물 (필요할 때 npm run build:worksheet 로 다시 만든다)
+worksheet/*.pdf

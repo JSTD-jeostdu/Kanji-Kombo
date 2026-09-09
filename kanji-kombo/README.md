@@ -3,6 +3,8 @@
 실생활 숙어 조합으로 익히는 개인용 일본어 한자 학습 웹앱.
 [칸지콤보_PRD.md](../칸지콤보_PRD.md) 기준 **로드맵 1~3단계** 구현본입니다.
 
+**▶ https://jstd-jeostdu.github.io/Kanji-Kombo/**
+
 - Firebase 설정 없이도 로컬 전용(localStorage)으로 완전히 동작하고, 설정을 넣으면 Google 로그인 + Firestore 동기화가 켜집니다
 - 교육한자 1학년 80자 · 숙어 178개 · 예문 357개
 - SM-2 계열 SRS, 후리가나 토글, 오늘의 복습 큐, 사전 브라우저, 통계 대시보드, 설정
@@ -94,6 +96,29 @@ scripts/
 ## 단축키 (학습 화면)
 
 `Space` 뒤집기 / 보통 · `1` 다시 · `2` 어려움 · `3` 보통 · `4` 쉬움 · `F` 후리가나 · `U` 실행 취소
+
+## 배포 (GitHub Pages)
+
+`main` 브랜치에 push하면 [워크플로](../.github/workflows/deploy.yml)가 알아서 배포합니다. 수동 작업은 없습니다.
+
+```
+push → 데이터셋 검사 → 병합 규칙 검사 → 빌드 → Pages 배포
+```
+
+검사 단계를 앞에 둔 이유는, 숙어를 추가하다 오타가 나면 **깨진 채로 배포되는 대신 배포가 멈추고 알려주도록** 하기 위해서입니다.
+
+### 알아 둘 점
+
+- **경로 설정** — Pages는 `/Kanji-Kombo/` 하위 경로로 서비스되므로 `vite.config.ts`에서 `base`를 맞춰 둡니다. 개발 서버에서는 `/`를 씁니다. 저장소 이름을 바꾸면 이 값도 같이 고쳐야 합니다.
+- **Firebase 설정값** — `.env.local`은 저장소에 올라가지 않습니다. 배포 빌드는 GitHub Secrets(`VITE_FIREBASE_*` 6개)에서 값을 받습니다. 값을 바꾸면 `gh secret set` 으로 갱신하세요.
+- **승인된 도메인** — 배포본에서 로그인하려면 Firebase 콘솔 → Authentication → Settings → 승인된 도메인에 `jstd-jeostdu.github.io`가 있어야 합니다.
+- **주소가 `#`로 나뉘는 이유** — `#/study` 같은 해시 라우팅을 써서 Pages에서 새로고침해도 404가 나지 않습니다. 일반 경로 라우팅으로 바꾸려면 `404.html` 우회가 따로 필요합니다.
+
+### 로컬에서 배포본과 똑같이 확인하기
+
+```bash
+GITHUB_ACTIONS=true npm run build && npm run preview
+```
 
 ## Firebase 연동 (로드맵 3단계)
 

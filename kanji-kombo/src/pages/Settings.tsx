@@ -3,6 +3,7 @@ import { AccountSection } from "../components/AccountSection";
 import { Section } from "../components/ui";
 import { COMPOUNDS } from "../data/compounds";
 import { KANJI } from "../data/kanji";
+import { gradeRangeLabel } from "../lib/stats";
 import { useApp } from "../store/appContext";
 
 export function Settings() {
@@ -171,7 +172,9 @@ export function Settings() {
           </div>
           <div className="flex justify-between">
             <dt className="text-ink-400">수록 한자</dt>
-            <dd className="tabular-nums text-ink-800">교육한자 1학년 {KANJI.length}자</dd>
+            <dd className="tabular-nums text-ink-800">
+              {gradeRangeLabel()} {KANJI.length}자
+            </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-ink-400">수록 숙어</dt>

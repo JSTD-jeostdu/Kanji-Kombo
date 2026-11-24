@@ -104,6 +104,17 @@ export function recentActivity(state: AppState, n: number): DayActivity[] {
   return out;
 }
 
+/**
+ * 수록된 학년 범위 라벨 — "교육한자 1~2학년".
+ * 학년을 추가하면 화면 문구가 저절로 따라오도록 데이터에서 뽑는다.
+ */
+export function gradeRangeLabel(): string {
+  const grades = [...new Set(KANJI.map((k) => k.grade))].sort((a, b) => a - b);
+  if (grades.length === 0) return "교육한자";
+  if (grades.length === 1) return `교육한자 ${grades[0]}학년`;
+  return `교육한자 ${grades[0]}~${grades[grades.length - 1]}학년`;
+}
+
 /** 앞으로 n일간 복습 예정 카드 수 */
 export function forecast(state: AppState, n: number): { day: string; count: number }[] {
   const today = todayKey(state.settings.dayStartHour);

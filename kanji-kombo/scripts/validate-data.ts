@@ -8,6 +8,7 @@ import { KANJI, KANJI_BY_ID } from "../src/data/kanji";
 import { COMPOUNDS, COMPOUNDS_BY_KANJI } from "../src/data/compounds";
 import { parseFurigana, stripFurigana } from "../src/lib/furigana";
 import { readingFor } from "../src/data/readings";
+import { SUPPLEMENT } from "../src/data/supplement";
 
 const errors: string[] = [];
 const warnings: string[] = [];
@@ -16,7 +17,10 @@ const KANA = /^[\u3040-\u309f\u30a0-\u30ff\u30fcー]+$/;
 const LATIN = /[A-Za-z]/;
 
 // --- 한자 ---
-if (KANJI.length !== 80) errors.push(`교육한자 1학년은 80자여야 하는데 ${KANJI.length}자입니다.`);
+const byGrade = new Map<number, number>();
+for (const k of KANJI) byGrade.set(k.grade, (byGrade.get(k.grade) ?? 0) + 1);
+if (byGrade.get(1) !== 80) errors.push(`교육한자 1학년은 80자여야 하는데 ${byGrade.get(1)}자입니다.`);
+if ((byGrade.get(2) ?? 0) > 160) errors.push(`교육한자 2학년이 160자를 넘습니다 (${byGrade.get(2)}자).`);
 const kanjiSeen = new Set<string>();
 for (const k of KANJI) {
   if (kanjiSeen.has(k.id)) errors.push(`한자 중복: ${k.id}`);
@@ -65,6 +69,11 @@ for (const c of COMPOUNDS) {
     if (!ex.ko.trim()) errors.push(`${c.id}: 한국어 번역이 비었습니다 — ${ex.jp}`);
   }
 }
+
+// --- 배당표와 보조표 중복 ---
+const dupes = KANJI.filter((k) => k.id in SUPPLEMENT).map((k) => k.id);
+if (dupes.length > 0)
+  errors.push(`배당표와 보조표에 중복된 한자: ${dupes.join(" ")} (supplement.ts에서 지워야 합니다)`);
 
 // --- 독음 병기 ---
 // 숙어 표기에 나오는 모든 한자는 한·일 독음을 보여줄 수 있어야 한다.

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ProgressBar, Section, Stat } from "../components/ui";
 import { formatDayKey } from "../lib/date";
-import { forecast, gradeProgress, recentActivity, summarize } from "../lib/stats";
+import { forecast, gradeProgress, gradeRangeLabel, recentActivity, summarize } from "../lib/stats";
 import { useApp } from "../store/appContext";
 import type { CardStage } from "../types";
 
@@ -44,7 +44,7 @@ export function Stats() {
         <div className="space-y-4">
           <div>
             <div className="mb-1.5 flex items-baseline justify-between text-[13px]">
-              <span className="font-semibold text-ink-700">교육한자 1학년</span>
+              <span className="font-semibold text-ink-700">{gradeRangeLabel()}</span>
               <span className="tabular-nums text-ink-400">
                 {summary.kanjiTouched} / {summary.totalKanji}자
               </span>

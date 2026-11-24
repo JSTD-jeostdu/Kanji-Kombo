@@ -5,8 +5,10 @@ import { ROWS as ROWS1 } from "./part1";
 import { ROWS as ROWS2 } from "./part2";
 import { ROWS as ROWS3 } from "./part3";
 import { ROWS as ROWS4 } from "./part4";
+import { ROWS as ROWS5 } from "./part5";
+import { ROWS as ROWS6 } from "./part6";
 
-const ALL_ROWS: Row[] = [...ROWS1, ...ROWS2, ...ROWS3, ...ROWS4];
+const ALL_ROWS: Row[] = [...ROWS1, ...ROWS2, ...ROWS3, ...ROWS4, ...ROWS5, ...ROWS6];
 
 function toCompound([id, reading, meaningKo, jlpt, primaryKanji, examples]: Row): Compound {
   return {

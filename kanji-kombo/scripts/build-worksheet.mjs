@@ -51,12 +51,6 @@ const GRID_STRONG = "3F3F3F";
 const jp = (text, opts = {}) => new TextRun({ text, font: JP, color: INK, ...opts });
 const kr = (text, opts = {}) => new TextRun({ text, font: KR, color: INK, ...opts });
 
-const NO_BORDER = {
-  top: { style: BorderStyle.NONE },
-  bottom: { style: BorderStyle.NONE },
-  left: { style: BorderStyle.NONE },
-  right: { style: BorderStyle.NONE },
-};
 
 // ── 쓰기 칸 배치 ────────────────────────────────────────────────────
 // 글자 수에 따라 한 줄에 몇 번씩 반복할지 정한다. 칸이 너무 작아지면
@@ -292,7 +286,15 @@ function compoundBlock(c) {
   return out;
 }
 
-function introBlock(part, range) {
+/** 묶음에 들어 있는 학년 — "1학년", 학년이 걸치면 "1~2학년" */
+function gradeLabel(kanjiList) {
+  const grades = [...new Set(kanjiList.map((k) => k.grade))].sort((a, b) => a - b);
+  return grades.length === 1
+    ? `${grades[0]}학년`
+    : `${grades[0]}~${grades[grades.length - 1]}학년`;
+}
+
+function introBlock(part, range, grade, total) {
   return [
     new Paragraph({
       spacing: { before: 0, after: 60 },
@@ -302,7 +304,7 @@ function introBlock(part, range) {
       spacing: { before: 0, after: 200 },
       border: { bottom: { style: BorderStyle.SINGLE, size: 12, color: INK, space: 6 } },
       children: [
-        kr(`교육한자 1학년 · ${part}번째 묶음 (${range})`, { size: 20, color: MUTED }),
+        kr(`교육한자 ${grade} · ${part}/${total}권 (${range})`, { size: 20, color: MUTED }),
       ],
     }),
     new Paragraph({
@@ -335,9 +337,10 @@ function introBlock(part, range) {
 }
 
 // ── 파일 만들기 ────────────────────────────────────────────────────
-function buildPart(kanjiList, part) {
+function buildPart(kanjiList, part, total) {
   const range = `${kanjiList[0].char} ~ ${kanjiList[kanjiList.length - 1].char}`;
-  const children = [...introBlock(part, range)];
+  const grade = gradeLabel(kanjiList);
+  const children = [...introBlock(part, range, grade, total)];
 
   kanjiList.forEach((k, idx) => {
     if (idx > 0) children.push(new Paragraph({ children: [new PageBreak()] }));
@@ -361,7 +364,7 @@ function buildPart(kanjiList, part) {
   return new Document({
     creator: "칸지콤보",
     title: `칸지콤보 워크시트 ${part} (${range})`,
-    description: "교육한자 1학년 손글씨 연습 학습지",
+    description: `교육한자 ${grade} 손글씨 연습 학습지`,
     styles: {
       default: {
         document: { run: { font: KR, size: 20, color: INK } },
@@ -377,7 +380,7 @@ function buildPart(kanjiList, part) {
                 alignment: AlignmentType.RIGHT,
                 spacing: { after: 0 },
                 children: [
-                  kr(`칸지콤보 워크시트 · 교육한자 1학년 · ${part}/4 (${range})`, {
+                  kr(`칸지콤보 워크시트 · 교육한자 ${grade} · ${part}/${total}권 (${range})`, {
                     size: 15,
                     color: FAINT,
                   }),
@@ -409,10 +412,11 @@ const data = JSON.parse(readFileSync("worksheet/data.json", "utf8"));
 mkdirSync("worksheet", { recursive: true });
 
 const CHUNK = 20;
+const TOTAL = Math.ceil(data.length / CHUNK);
 for (let i = 0; i < data.length; i += CHUNK) {
   const part = i / CHUNK + 1;
   const slice = data.slice(i, i + CHUNK);
-  const doc = buildPart(slice, part);
+  const doc = buildPart(slice, part, TOTAL);
   const buffer = await Packer.toBuffer(doc);
   const name = `worksheet/칸지콤보_워크시트_${part}_${slice[0].char}-${slice[slice.length - 1].char}.docx`;
   writeFileSync(name, buffer);

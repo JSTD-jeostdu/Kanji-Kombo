@@ -1,15 +1,7 @@
-import type { JlptLevel, Kanji } from "../types";
+import type { Row } from "./row";
 
-/**
- * 교육한자 1학년 80자 (문부과학성 学年別漢字配当表 기준, 배열 순서도 동일).
- *
- * 튜플 형식: [한자, 획수, JLPT, 음독(・), 훈독(・), 한국음(·), 한국훈(·), 대표뜻]
- * - 훈독의 `.`는 送り仮名 경계 (예: `やす.む` → 休む)
- * - 한국음/한국훈은 같은 순서로 짝을 이룬다 (예: 매 ↔ 매양)
- */
-type Row = [string, number, JlptLevel, string, string, string, string, string];
-
-const ROWS: Row[] = [
+/** 교육한자 1학년 80자 (문부과학성 学年別漢字配当表 순서). */
+export const ROWS: Row[] = [
   ["一", 1, "N5", "イチ・イツ", "ひと・ひと.つ", "일", "한", "하나"],
   ["右", 5, "N5", "ウ・ユウ", "みぎ", "우", "오른", "오른쪽"],
   ["雨", 8, "N5", "ウ", "あめ・あま", "우", "비", "비"],
@@ -91,26 +83,3 @@ const ROWS: Row[] = [
   ["林", 8, "N4", "リン", "はやし", "림", "수풀", "수풀"],
   ["六", 4, "N5", "ロク", "むっ.つ", "륙", "여섯", "여섯"],
 ];
-
-const split = (s: string) => (s === "—" ? [] : s.split("・"));
-
-export const KANJI: Kanji[] = ROWS.map(([id, strokes, jlpt, on, kun, eum, hun, meaningKo]) => ({
-  id,
-  strokes,
-  grade: 1,
-  jlpt,
-  on: split(on),
-  kun: split(kun),
-  krEum: eum.split("·"),
-  krHun: hun.split("·"),
-  meaningKo,
-}));
-
-export const KANJI_BY_ID: Record<string, Kanji> = Object.fromEntries(
-  KANJI.map((k) => [k.id, k]),
-);
-
-/** 배당표 순서 = 학습 진도 순서 */
-export const KANJI_ORDER: Record<string, number> = Object.fromEntries(
-  KANJI.map((k, i) => [k.id, i]),
-);

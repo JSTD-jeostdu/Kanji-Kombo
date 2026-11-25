@@ -7,8 +7,8 @@
 270x480 픽셀로 그린 뒤 4배 확대해 1080x1920(세로 숏폼)으로 뽑는다.
 확대는 최근접 보간이라 픽셀이 뭉개지지 않는다.
 
-30초 · 30fps · 900프레임. 컷은 전부 짝수 초에 떨어지므로 120BPM 음악의
-2마디 단위와 맞는다 (업로드할 때 플랫폼 음원을 얹으면 박자가 맞는다).
+30초 · 30fps · 900프레임. 컷은 전부 짝수 초에 떨어진다.
+음악(build_audio.py)이 120BPM이므로 한 마디 2초 — 컷과 마디가 그대로 맞는다.
 """
 
 import argparse
@@ -20,6 +20,8 @@ import tempfile
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
+
+import build_audio
 
 # ── 기본 설정 ────────────────────────────────────────────────────────
 W, H = 270, 480          # 논리 픽셀 캔버스
@@ -497,6 +499,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--still", type=float, help="해당 초의 한 장면만 PNG로 뽑는다")
     ap.add_argument("--ffmpeg", default=None, help="ffmpeg 실행 파일 경로")
+    ap.add_argument("--no-audio", action="store_true", help="음악·효과음 없이 뽑는다")
     args = ap.parse_args()
 
     OUT.mkdir(parents=True, exist_ok=True)
@@ -510,6 +513,11 @@ def main():
         return
 
     ffmpeg = args.ffmpeg or shutil.which("ffmpeg")
+
+    wav = None
+    if not args.no_audio:
+        wav = build_audio.render(OUT / "promo_audio.wav")
+
     tmp = Path(tempfile.mkdtemp(prefix="kanjikombo-promo-"))
     try:
         for f in range(TOTAL):
@@ -528,13 +536,19 @@ def main():
         cmd = [
             ffmpeg, "-y", "-framerate", str(FPS),
             "-i", str(tmp / "f%04d.png"),
+        ]
+        if wav:
+            cmd += ["-i", str(wav)]
+        cmd += [
             "-c:v", "libx264", "-preset", "slow", "-crf", "17",
             "-pix_fmt", "yuv420p",
             # 픽셀 경계가 압축으로 뭉개지지 않도록
             "-x264-params", "aq-mode=3",
             "-movflags", "+faststart",
-            str(mp4),
         ]
+        if wav:
+            cmd += ["-c:a", "aac", "-b:a", "192k", "-shortest"]
+        cmd += [str(mp4)]
         r = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
         if r.returncode != 0:
             print(r.stderr[-1500:], file=sys.stderr)

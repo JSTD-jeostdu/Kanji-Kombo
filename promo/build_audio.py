@@ -23,7 +23,7 @@ BPM = 120
 BEAT = 60.0 / BPM          # 0.5초
 BAR = 4 * BEAT             # 2.0초
 EIGHTH = BEAT / 2          # 0.25초
-DURATION = 30.0
+DURATION = 36.0
 TAIL = 1.2                 # 끝음이 잘리지 않게 두는 여유 (최종 출력에서 잘라낸다)
 
 ROOT = Path(__file__).resolve().parent
@@ -199,6 +199,37 @@ def sfx_whoosh(t, dur=0.42, up=True, vol=0.3):
     mix(out * shape, t, vol)
 
 
+def sfx_paper(t):
+    """워크시트가 올라올 때 — 종이가 스치는 소리라 고역을 깎는다."""
+    n = int(0.5 * SR)
+    ramp = np.linspace(0, 1, n)
+    nz = noise(n, 9000, seed=13)
+    out = np.zeros(n)
+    for i in range(16):
+        a, b = i * n // 16, (i + 1) * n // 16
+        out[a:b] = lp(nz[a:b], float(900 + 1800 * ramp[a]))
+    mix(out * np.sin(math.pi * ramp) ** 1.6, t, 0.26)
+
+
+def sfx_pencil(t, i):
+    """연필로 한 칸 쓰는 소리. 열 번 반복되므로 매번 조금씩 다르게."""
+    n = int(0.13 * SR)
+    nz = noise(n, 13000, seed=200 + i)
+    body = hp(lp(nz, 3600 + (i % 3) * 400), 1100)
+    shape = np.exp(-np.arange(n) / (0.05 * SR)) * (0.6 + 0.4 * np.sin(
+        2 * math.pi * 34 * np.arange(n) / SR))      # 긁는 결
+    mix(body * shape, t, 0.17, pan=-0.3 + (i % 5) * 0.15)
+
+
+def sfx_done(t):
+    """10/10 — 다 썼다는 확인음."""
+    n = int(0.12 * SR)
+    mix(lp(noise(n, 10000, seed=23), 2200) * np.exp(-np.arange(n) / (0.03 * SR)), t, 0.2)
+    for i, nm in enumerate(["a5", "e6"]):
+        note("pulse", nm, 0.3 if i else 0.07, 0.15, 0.5, t + i * 0.07,
+             d=0.03, s=0.6, r=0.2)
+
+
 def sfx_tick(t, f=1400, vol=0.09):
     """카드 안의 항목이 하나씩 나타날 때."""
     n = int(0.045 * SR)
@@ -265,23 +296,25 @@ def hat(t, vol=0.055, open_=False):
 
 
 # ── 화성 ────────────────────────────────────────────────────────────
-# 마디 15개 = 30초. 장면 경계와 그대로 맞는다.
+# 마디 18개 = 36초. 장면 경계와 그대로 맞는다.
 CHORDS = {
-    0: "Am", 1: "Am",            # 0~4초  훅
-    2: "F", 3: "Am",             # 4~8초  콤보
-    4: "Am", 5: "F", 6: "G",     # 8~14초 학습 카드
-    7: "Am", 8: "F", 9: "G",     # 14~20초 예문
-    10: "Am", 11: "E",           # 20~24초 복습
-    12: "Am", 13: "F", 14: "G",  # 24~30초 마무리
+    0: "Am", 1: "Am",             # 0~4초   훅
+    2: "F", 3: "Am",              # 4~8초   콤보
+    4: "Am", 5: "F", 6: "G",      # 8~14초  학습 카드
+    7: "Am", 8: "F", 9: "G",      # 14~20초 예문
+    10: "C", 11: "G", 12: "Am",   # 20~26초 워크시트 — 잠깐 밝은 쪽으로 옮겨 간다
+    13: "Am", 14: "E",            # 26~30초 복습
+    15: "Am", 16: "G", 17: "Am",  # 30~36초 마무리 · 댓글
 }
 TONES = {
     "Am": ["a4", "c5", "e5"],
     "F": ["f4", "a4", "c5"],
     "G": ["g4", "b4", "d5"],
     "E": ["e4", "g#4", "b4"],
+    "C": ["c5", "e5", "g5"],
 }
-ROOTS = {"Am": "a2", "F": "f2", "G": "g2", "E": "e2"}
-FIFTHS = {"Am": "e3", "F": "c3", "G": "d3", "E": "b2"}
+ROOTS = {"Am": "a2", "F": "f2", "G": "g2", "E": "e2", "C": "c3"}
+FIFTHS = {"Am": "e3", "F": "c3", "G": "d3", "E": "b2", "C": "g3"}
 
 # 멜로디 — 한 토큰이 8분음표(0.25초), '.'는 쉼표, '-'는 앞 음을 이어받는다
 LEAD = {
@@ -291,11 +324,15 @@ LEAD = {
     7: "a5 - c6 - e6 - d6 -",
     8: "c6 - a5 - f5 - g5 -",
     9: "d6 - b5 - g5 - a5 -",
-    10: "a5 . e5 . . . . .",
-    11: "e5 . g#5 . b5 - . .",
-    12: "a5 a5 c6 e6 e6 d6 c6 b5",
-    13: "a5 a5 c6 f6 f6 e6 d6 c6",
-    14: "b5 c6 d6 e6 a6 - - -",
+    # 워크시트 — 같은 음을 반복해 '열 번씩 쓴다'는 동작을 소리로도 들려준다
+    10: "c6 c6 e6 c6 g5 . g5 .",
+    11: "b5 b5 d6 b5 g5 . g5 .",
+    12: "a5 c6 e6 c6 b5 a5 b5 .",
+    13: "a5 . e5 . . . . .",
+    14: "e5 . g#5 . b5 - . .",
+    15: "a5 a5 c6 e6 e6 d6 c6 b5",
+    16: "b5 b5 d6 g6 g6 e6 d6 c6",
+    17: "a5 c6 e6 a6 - - - -",
 }
 
 
@@ -369,23 +406,23 @@ def arrange():
              a=0.01, d=0.2, s=0.6, r=0.2)
         note("tri", FIFTHS[CHORDS[bar]], BEAT, 0.12, t=bar * BAR + 3 * BEAT,
              a=0.005, d=0.1, s=0.5, r=0.1)
-    for bar in range(2, 15):
+    for bar in range(2, 18):
         play_bass(bar, 0.20 if bar >= 4 else 0.17)
 
     # 아르페지오
     for bar in (0, 1):
         play_arp(bar, vol=0.045, duty=0.25, sixteenths=False)
-    for bar in range(2, 15):
-        play_arp(bar, vol=0.065 if bar < 12 else 0.08)
+    for bar in range(2, 18):
+        play_arp(bar, vol=0.065 if bar < 15 else 0.08)
 
     # 멜로디
     for bar, pattern in LEAD.items():
         quiet = bar in (7, 8, 9)             # 예문 타이핑 구간은 한 걸음 물러난다
         play_lead(bar, pattern,
-                  vol=0.15 if quiet else (0.22 if bar >= 12 else 0.20),
-                  duty=0.5 if bar < 12 else 0.25)
+                  vol=0.15 if quiet else (0.22 if bar >= 15 else 0.20),
+                  duty=0.5 if bar < 15 else 0.25)
     # 마무리 구간은 3도 위를 겹쳐 두껍게
-    for bar in (12, 13, 14):
+    for bar in (15, 16, 17):
         play_lead(bar, LEAD[bar], vol=0.075, duty=0.125, pan=0.22)
 
     # 콤보 마디(6초)의 팡파르 — 충돌 직후 화면과 함께 터진다
@@ -398,19 +435,19 @@ def arrange():
     play_drums(0, "soft")
     play_drums(1, "soft")
     play_drums(2, "build")
-    for bar in range(3, 10):
+    for bar in range(3, 13):
         play_drums(bar)
-    play_drums(10, "light")
-    play_drums(11, "light")
-    for bar in range(12, 15):
+    play_drums(13, "light")
+    play_drums(14, "light")
+    for bar in range(15, 18):
         play_drums(bar)
 
-    # 마지막 한 방 — 29.0초. 영상의 주소 줄이 깜빡이는 동안 울려 끝난다
+    # 마지막 한 방 — 34.0초, 댓글 안내 화면이 뜨는 바로 그 순간
     for nm, pan in (("a4", -0.25), ("e5", 0.0), ("a5", 0.25)):
-        note("pulse", nm, 1.0, 0.15, 0.5, 29.0, pan=pan, a=0.003, d=0.15, s=0.5, r=0.6)
-    note("tri", "a2", 1.0, 0.26, t=29.0, a=0.003, d=0.2, s=0.55, r=0.6)
-    kick(29.0, 0.34)
-    sfx_crash(29.0, 0.24)
+        note("pulse", nm, 1.9, 0.15, 0.5, 34.0, pan=pan, a=0.003, d=0.2, s=0.5, r=1.2)
+    note("tri", "a2", 1.9, 0.26, t=34.0, a=0.003, d=0.25, s=0.55, r=1.2)
+    kick(34.0, 0.34)
+    sfx_crash(34.0, 0.26)
 
 
 # 효과음 — 시각 타이밍에서 그대로 가져온 초. 영상을 고치면 여기도 같이 고친다.
@@ -421,21 +458,36 @@ def effects():
     sfx_coin(5.96)                # '2 HIT'
     sfx_coin(6.38, "e6", "a6")    # 'COMBO!'
     sfx_sparkle(7.03)             # '매일 · 날마다'
+
     sfx_whoosh(8.0, 0.5, up=True)  # 학습 카드 올라옴
     sfx_tick(10.10, 1500)         # 한자 풀이 1행 (毎)
     sfx_tick(10.93, 1700)         # 한자 풀이 2행 (日)
     sfx_tick(12.32, 2100, 0.07)   # N5 배지
+
     for i in range(13):           # 예문 13글자 타이핑 (14.36 → 16.55초)
         sfx_type(14.36 + i * (16.55 - 14.36) / 12, i)
     sfx_tick(16.70, 1200, 0.07)   # 한국어 해석
     sfx_tick(18.20, 1900, 0.08)   # '숙어마다 예문 2~3개'
-    sfx_press(20.80)              # '보통' 버튼
-    sfx_whoosh(21.05, 0.36, up=False, vol=0.26)   # 카드가 위로 빠짐
-    sfx_chime(21.60)              # '7일 뒤'
-    sfx_logo(24.00)               # 로고
+
+    sfx_paper(20.00)              # 워크시트가 올라옴
+    for i in range(10):           # 열 칸을 한 칸씩 (21.08 → 23.46초)
+        sfx_pencil(21.08 + i * 0.264, i)
+    sfx_done(23.72)               # 10/10
+    sfx_tick(24.12, 1400, 0.08)   # '손으로 10번 → 앱으로 복습'
+    sfx_tick(24.50, 1800, 0.07)
+
+    sfx_press(26.80)              # '보통' 버튼
+    sfx_whoosh(27.05, 0.36, up=False, vol=0.26)   # 카드가 위로 빠짐
+    sfx_chime(27.60)              # '7일 뒤'
+
+    sfx_logo(30.00)               # 로고
     for i in range(3):            # 한자·숙어·예문 칸
-        sfx_tick(25.80 + i * 0.42, 1300 + i * 320, 0.085)
-    sfx_coin(26.70, "a5", "e6")   # 주소 줄
+        sfx_tick(31.20 + i * 0.28, 1300 + i * 320, 0.085)
+    sfx_coin(31.80, "a5", "e6")   # 주소 줄
+
+    # 34.0초의 큰 한 방은 arrange()에 있다 — 댓글 안내가 뜨는 순간
+    sfx_sparkle(34.55)            # 안내 카드의 글자
+    sfx_coin(34.72, "e6", "a6")   # 주소 줄
 
 
 # ── 출력 ────────────────────────────────────────────────────────────

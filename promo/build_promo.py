@@ -7,7 +7,7 @@
 270x480 픽셀로 그린 뒤 4배 확대해 1080x1920(세로 숏폼)으로 뽑는다.
 확대는 최근접 보간이라 픽셀이 뭉개지지 않는다.
 
-30초 · 30fps · 900프레임. 컷은 전부 짝수 초에 떨어진다.
+36초 · 30fps · 1080프레임. 컷은 전부 짝수 초에 떨어진다.
 음악(build_audio.py)이 120BPM이므로 한 마디 2초 — 컷과 마디가 그대로 맞는다.
 """
 
@@ -27,8 +27,10 @@ import build_audio
 W, H = 270, 480          # 논리 픽셀 캔버스
 SCALE = 4                # 1080x1920
 FPS = 30
-DURATION = 30
+DURATION = 36
 TOTAL = FPS * DURATION
+
+HANDLE = "@jungputer"      # 모든 프레임 오른쪽 위 여백에 박는다
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "out"
@@ -188,6 +190,35 @@ def shake(t):
         return 0, 0
     amp = (1 - t) * 5
     return int(math.sin(t * 42) * amp), int(math.cos(t * 37) * amp)
+
+
+def watermark(img):
+    """만든 사람 표기. 흰 플래시 위에서도 읽히도록 사방에 1픽셀 외곽선을 두른다."""
+    x, y = W - 8, 7
+    for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        blit(img, x + dx, y + dy, HANDLE, FONT_KR_LIGHT, 10, (14, 10, 18),
+             anchor="rt", threshold=90)
+    blit(img, x, y, HANDLE, FONT_KR_LIGHT, 10, (198, 202, 214), anchor="rt", threshold=90)
+
+
+HEART = ["01100110", "11111111", "11111111", "11111111", "01111110", "00111100", "00011000"]
+
+
+def pixel_heart(d, cx, cy, s, color):
+    w, h = len(HEART[0]) * s, len(HEART) * s
+    x0, y0 = cx - w // 2, cy - h // 2
+    for j, row in enumerate(HEART):
+        for i, ch in enumerate(row):
+            if ch == "1":
+                d.rectangle([x0 + i * s, y0 + j * s, x0 + i * s + s - 1, y0 + j * s + s - 1],
+                            fill=color)
+
+
+def arrow(d, x, y, w, color):
+    """오른쪽을 가리키는 픽셀 화살표."""
+    d.rectangle([x, y - 1, x + w - 5, y + 1], fill=color)
+    for k in range(5):
+        d.rectangle([x + w - 5 + k, y - 4 + k, x + w - 5 + k, y + 4 - k], fill=color)
 
 
 # ── 장면 ────────────────────────────────────────────────────────────
@@ -377,6 +408,81 @@ def scene_example(img, d, f, n):
     subtitle(img, "단어만 말고, 쓰이는 문장째로")
 
 
+WS_START = 0.18      # 첫 칸을 쓰기 시작하는 지점
+WS_STEP = 0.044      # 칸 하나당 걸리는 시간
+WS_DONE = 0.62       # 10칸을 다 채운 뒤
+
+
+def scene_worksheet(img, d, f, n):
+    """20~26초 — 출력해서 손으로 쓰는 워크시트. 앱과 짝을 이루는 쪽."""
+    t = f / n
+    rise = ease_out(min(1, t / 0.16))
+    y0 = int(lerp(H, 58, rise))
+
+    panel(d, 26, y0, W - 52, 252)
+    d.rectangle([26, y0, W - 26, y0 + 3], fill=VERM)
+    kr(img, 40, y0 + 12, "손글씨 워크시트", 13, INK)
+    kr(img, 230, y0 + 15, "A4 출력용", 10, GRAY, anchor="rt", light=True)
+    d.rectangle([40, y0 + 34, 230, y0 + 35], fill=PAPER_SH)
+
+    # 왼쪽은 본보기 글자, 오른쪽은 몇 번 썼는지
+    jp(img, 40, y0 + 44, "毎日", 26, INK)
+    jp(img, 96, y0 + 54, "まいにち", 11, GRAY)
+    kr(img, 40, y0 + 76, "매일 · 날마다", 12, GRAY)
+
+    written = 0 if t < WS_START else min(10, int((t - WS_START) / WS_STEP) + 1)
+    flash = WS_DONE < t < WS_DONE + 0.06
+    kr(img, 230, y0 + 60, f"{written}/10", 20, WHITE if flash else GOLD, anchor="rm")
+    d.rectangle([40, y0 + 98, 230, y0 + 99], fill=PAPER_SH)
+
+    # 10칸을 한 칸씩 채워 나간다
+    for i in range(10):
+        col, row = i % 5, i // 5
+        bx, by = 40 + col * 39, y0 + 108 + row * 39
+        d.rectangle([bx, by, bx + 34, by + 34], outline=PAPER_SH)
+        for k in range(3, 34, 4):                 # 田자 보조선
+            d.point((bx + 17, by + k), fill=PAPER_SH)
+            d.point((bx + k, by + 17), fill=PAPER_SH)
+        ap = ease_out((t - WS_START - i * WS_STEP) / 0.05)
+        if ap > 0.02:
+            c = tuple(int(lerp(PAPER[j], INK[j], ap)) for j in range(3))
+            jp(img, bx + 17, by + 17, "毎日", 15, c, anchor="cm")
+
+    # 지금 쓰고 있는 칸 위의 연필
+    idx = int((t - WS_START) / WS_STEP)
+    if t > WS_START and 0 <= idx < 10:
+        col, row = idx % 5, idx // 5
+        px = 40 + col * 39 + 29
+        py = y0 + 108 + row * 39 + 27 + int(math.sin(f * 1.1) * 1.5)
+        d.line([(px, py), (px + 10, py - 12)], fill=GOLD, width=3)
+        d.line([(px + 9, py - 13), (px + 13, py - 18)], fill=PAPER_SH, width=2)
+        d.point((px - 1, py + 1), fill=INK)
+
+    gw = int(190 * written / 10)
+    d.rectangle([40, y0 + 196, 230, y0 + 204], fill=PAPER_SH)
+    if gw:
+        d.rectangle([40, y0 + 196, 40 + gw, y0 + 204], fill=VERM)
+    if t > WS_DONE:
+        a = ease_out((t - WS_DONE) / 0.12)
+        c = tuple(int(lerp(PAPER[j], INK[j], a)) for j in range(3))
+        kr(img, W // 2, y0 + 224, "한 숙어를 열 번씩 손으로", 12, c, anchor="cm")
+
+    # 손으로 쓰고 → 앱으로 복습
+    if t > 0.68:
+        a = ease_out((t - 0.68) / 0.16)
+        for i, (label, color) in enumerate((("손으로 10번", GOLD), ("앱으로 복습", WHITE))):
+            x = 18 + i * 130
+            d.rectangle([x, 326, x + 104, 362], fill=BG_SOFT)
+            d.rectangle([x, 326, x + 104, 328], fill=VERM)
+            c = tuple(int(lerp(BG_SOFT[j], color[j], a)) for j in range(3))
+            kr(img, x + 52, 346, label, 12, c, anchor="cm")
+        if a > 0.4:
+            arrow(d, 128, 344, 14, VERM)
+
+    subtitle(img, "출력해서 손으로 쓰는 워크시트" if t < 0.5
+             else "쓰면서 외우고, 앱으로 복습합니다")
+
+
 SRS_BUTTONS = [("다시", VERM), ("어려움", GOLD), ("보통", BLUE), ("쉬움", GREEN)]
 SRS_DAYS = ["1일 뒤", "3일 뒤", "7일 뒤", "21일 뒤"]
 
@@ -459,13 +565,46 @@ def scene_cta(img, d, f, n):
     subtitle(img, "오늘 한 조합부터 시작해 보세요")
 
 
+def scene_comment(img, d, f, n):
+    """34~36초 — 댓글을 남기면 워크시트를 보내 준다는 안내. 영상의 마지막 한 장."""
+    t = f / n
+    d.rectangle([0, 0, W, H], fill=VERM)
+    for y in range(0, H, 6):                      # 주홍 바탕의 8비트 결
+        d.line([(0, y), (W, y)], fill=VERM_DK)
+
+    panel(d, W // 2 - 26, 54, 52, 52, fill=PAPER)
+    jp(img, W // 2, 80, "漢", 34, VERM, anchor="cm")
+
+    p = ease_out_back(min(1, t / 0.3))
+    ch = int(lerp(12, 176, p))
+    cy = 128 + (176 - ch) // 2
+    panel(d, 22, cy, 226, ch)
+
+    if p > 0.75:
+        kr(img, W // 2, 168, "아무 댓글이나 남겨주시면", 15, INK, anchor="cm")
+        kr(img, W // 2, 198, "워크시트를 보내드립니다", 17, VERM, anchor="cm")
+        pixel_heart(d, W // 2, 238, 5 if (f // 5) % 2 == 0 else 4, VERM)
+        kr(img, W // 2, 278, "출력해서 바로 쓰는 워드 파일", 11, GRAY, anchor="cm")
+
+    if t > 0.35:
+        blink = WHITE if (f // 7) % 2 == 0 else GOLD
+        d.rectangle([20, 330, W - 20, 356], fill=BG_SOFT)
+        d.rectangle([20, 330, W - 20, 332], fill=INK)
+        blit(img, W // 2, 344, "jstd-jeostdu.github.io/Kanji-Kombo",
+             FONT_KR_LIGHT, 11, blink, anchor="cm", threshold=90)
+
+    subtitle(img, "댓글 한 줄이면 보내드립니다")
+
+
 SCENES = [
     (0, 120, scene_hook),
     (120, 240, scene_combo),
     (240, 420, scene_card),
     (420, 600, scene_example),
-    (600, 720, scene_srs),
-    (720, 900, scene_cta),
+    (600, 780, scene_worksheet),
+    (780, 900, scene_srs),
+    (900, 1020, scene_cta),
+    (1020, 1080, scene_comment),
 ]
 
 
@@ -491,6 +630,7 @@ def render_frame(f: int) -> Image.Image:
         shifted.paste(img, (dx, dy))
         img = shifted
 
+    watermark(img)          # 흔들림 뒤에 찍어야 서명이 같이 흔들리지 않는다
     scanlines(img)
     return img
 
@@ -532,7 +672,7 @@ def main():
             print(f"프레임만 만들었습니다 (ffmpeg를 찾지 못했습니다): {keep}")
             return
 
-        mp4 = OUT / "칸지콤보_홍보_30초.mp4"
+        mp4 = OUT / "칸지콤보_홍보_36초.mp4"
         cmd = [
             ffmpeg, "-y", "-framerate", str(FPS),
             "-i", str(tmp / "f%04d.png"),
